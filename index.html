@@ -1,113 +1,163 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Arun Pensions Dashboard</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #fafafa; }
-        .container { max-width: 450px; margin: auto; padding: 16px; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.05); border-radius: 12px; }
-        h2 { text-align: center; margin-bottom: 8px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-        th, td { text-align: center; padding: 5px; border: 1px solid #eee; }
-        input[type='number'] { width: 70px; padding: 2px; text-align: right; }
-        .chart { margin-top: 20px; background: #fff; }
-        @media (max-width:600px) {
-            .container { max-width: 100vw; padding: 3px; }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Pension Dashboard</title>
+  <!-- Vibrant color palette and Google Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(120deg, #70e1f5, #ffd194);
+      margin: 0;
+      color: #222;
+    }
+    header {
+      background: #21d4fd;
+      color: #fff;
+      padding: 1.2em 0;
+      text-align: center;
+      font-size: 2em;
+      font-weight: bold;
+      letter-spacing: 1px;
+      box-shadow: 0 2px 8px rgba(33,212,253,0.15);
+    }
+    nav {
+      display: flex;
+      justify-content: center;
+      gap: 1.4em;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+      font-size: 1.1em;
+      font-weight: 700;
+    }
+    nav button {
+      background: none;
+      border: none;
+      color: #21d4fd;
+      cursor: pointer;
+      padding: 1em 0.7em;
+      transition: color 0.2s;
+    }
+    nav button.active,
+    nav button:hover {
+      color: #fad0c4;
+      text-decoration: underline;
+    }
+    main { max-width: 900px; margin: 2em auto; padding: 2em; background: #fff; border-radius: 18px; box-shadow: 0 4px 24px rgba(70,181,255,0.09); }
+    .stats { display: flex; gap: 2em; flex-wrap: wrap; margin-bottom: 2em; }
+    .statbox { background: #f1f9ff; border-radius: 10px; padding: 1.2em 2em; box-shadow: 0 2px 6px #70e1f53c; }
+    .form-row { display: flex; gap: 1em; align-items: center; margin-bottom: 0.5em; }
+    label { min-width: 70px; }
+    input[type='number'] { width: 85px; padding: 0.3em; border-radius: 5px; border: 1px solid #b0eafd; background: #e7f6ff; }
+    .savebtn { background: #21d4fd; color: #fff; border: none; padding: 0.6em 1em; border-radius: 7px; cursor: pointer; font-weight: 700; }
+    @media (max-width:600px) {
+      main { padding: 1em; }
+      .stats { flex-direction: column; gap: 1em; }
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-    <h2>Arun Pensions Dashboard</h2>
-    <form id="pensionForm">
-        <table id="pensionTable">
-        </table>
-        <button type="submit">Save & Update Charts</button>
-    </form>
-    <div class="chart">
-        <canvas id="lineChartAll" width="400" height="200"></canvas>
-        <canvas id="lineChartTotal" width="400" height="200"></canvas>
-    </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-// Initial data - you can edit this
-const pensions = {
-    "Nest": [1000,1400,1500,1600,1800,2000,2100,2300,2500,2800,3000],
-    "Royal London": [0,0,1200,2600,3300,4500,5000,5500,6000,6600,7800],
-    "Baringa": [0,0,0,0,0,0,2500,6000,10000,15000,20000]
-};
-const years = [2020,2021,2022,2023,2024,2025,2026,2027,2028,2029,2030];
+  <header>Pension Dashboard</header>
+  <nav id="tabs"></nav>
+  <main id="content"></main>
+  <script>
+    // Initial pension state
+    const DEFAULT_DATA = {
+      Nest: { provider: 'Nest', values:   {2018: 1000,2019:1300,2020:1400,2021:1500,2022:1600,2023:1800,2024:2000} },
+      'Royal London': { provider: 'Royal London', values: {2018: 0,2019: 0,2020: 0,2021:1200,2022:2600,2023:3300,2024:4500} },
+      Baringa: { provider: 'Baringa', values: {2018:0,2019:0,2020:0,2021:0,2022:0,2023:0,2024:2500} }
+    };
+    let pensionData = JSON.parse(localStorage.getItem('pensionDataV1') || JSON.stringify(DEFAULT_DATA));
+    const years = Array.from({length: (new Date().getFullYear()-2018)+1}, (_,i) => 2018+i);
 
-function updateTable() {
-    const table = document.getElementById('pensionTable');
-    let html = '<tr><th>Year</th>';
-    for (let name in pensions) html += `<th>${name}</th>`;
-    html += '</tr>';
-    for (let i=0; i<years.length; i++) {
-        html += '<tr><td>'+years[i]+'</td>';
-        for (let name in pensions) {
-            html += `<td><input type="number" value="${pensions[name][i]}" min="0" data-pension="${name}" data-idx="${i}" /></td>`;
-        }
-        html += '</tr>';
+    const renderTabs = () => {
+      const tablist = ['Dashboard', ...Object.keys(pensionData)];
+      document.getElementById('tabs').innerHTML = tablist.map(
+        t => `<button${activeTab===t?' class="active"':''} onclick="switchTab('${t}')">${t}</button>`
+      ).join('');
+    };
+
+    let activeTab = 'Dashboard';
+    window.switchTab = tab => { activeTab = tab; render(); };
+
+    function render() {
+      renderTabs();
+      const content = document.getElementById('content');
+      if(activeTab==='Dashboard') {
+        // Summary stats & combined chart
+        let totals = {};
+        years.forEach(y=>{
+          totals[y] = Object.values(pensionData).reduce((sum,p)=>sum+(p.values[y]||0),0)
+        });
+        const currTotal = totals[years[years.length-1]];
+        const prevTotal = totals[years[years.length-2]] || 0;
+        content.innerHTML = `
+          <div class="stats">
+            <div class="statbox">
+              <div><b>Total value (latest):</b></div>
+              <div style="font-size:1.7em;">£${currTotal.toLocaleString()}</div>
+            </div>
+            <div class="statbox">
+              <div><b>Year-on-year growth:</b></div>
+              <div style="font-size:1.3em;">${currTotal>prevTotal?'+':'-'}£${(currTotal-prevTotal).toLocaleString()}</div>
+            </div>
+          </div>
+          <canvas id="sumChart" height="120"></canvas>
+        `;
+        setTimeout(()=>drawLineChart('sumChart', years, Object.values(totals), "Combined Total (£)"), 50);
+      } else {
+        const pd = pensionData[activeTab];
+        content.innerHTML = `
+          <div style="margin-bottom:1.5em;">
+            <b>Edit annual values for <span style="color:#21d4fd">${activeTab}</span>:</b>
+            <form id="editForm">${years.map(y =>
+              `<div class="form-row">
+                <label>${y}</label>
+                <input type="number" min="0" name="val-${y}" value="${pd.values[y]||''}" />
+              </div>`
+            ).join('')}
+             <button class="savebtn" type="submit">Save</button>
+            </form>
+          </div>
+          <canvas id="pensionChart" height="120"></canvas>
+        `;
+        setTimeout(()=>drawLineChart('pensionChart', years, years.map(y=>pd.values[y]||0), `${activeTab} Value (£)`),50);
+        document.getElementById('editForm').onsubmit = e => {
+          e.preventDefault();
+          years.forEach(y=>{
+            const v = parseFloat(e.target[`val-${y}`].value) || 0;
+            pd.values[y] = v;
+          });
+          pensionData[activeTab] = pd;
+          localStorage.setItem('pensionDataV1', JSON.stringify(pensionData));
+          render();
+        };
+      }
     }
-    table.innerHTML = html;
-}
 
-function getFormData() {
-    const inputs = document.querySelectorAll('input[type=number]');
-    inputs.forEach(input => {
-        const name = input.getAttribute('data-pension');
-        const idx = parseInt(input.getAttribute('data-idx'));
-        pensions[name][idx] = Number(input.value);
-    });
-}
-
-function drawCharts() {
-    // All pension line chart
-    const ctxA = document.getElementById('lineChartAll').getContext('2d');
-    if (window.lineChartAll) window.lineChartAll.destroy();
-    window.lineChartAll = new Chart(ctxA, {
-        type:'line',
+    function drawLineChart(elemId, labels, data, label) {
+      new Chart(document.getElementById(elemId), {
+        type: "line",
         data: {
-            labels: years,
-            datasets: Object.keys(pensions).map((name, i) => ({
-                label: name,
-                data: pensions[name],
-                borderColor: ['#1976d2','#43a047','#e53935'][i],
-                fill:false
-            }))
+          labels: labels,
+          datasets: [{
+            label, data, fill: true, tension: 0.33,
+            borderColor: "#21d4fd", backgroundColor: "rgba(33,212,253,0.18)",
+            pointRadius: 4, pointBackgroundColor: "#fad0c4"
+          }]
         },
-        options: {responsive:true, plugins:{legend:{display:true}}}
-    });
-    // Total (sum) line chart
-    const totals = years.map((_,i) => Object.values(pensions).reduce((acc,v) => acc+v[i],0));
-    const ctxT = document.getElementById('lineChartTotal').getContext('2d');
-    if (window.lineChartTotal) window.lineChartTotal.destroy();
-    window.lineChartTotal = new Chart(ctxT, {
-        type:'line',
-        data: {
-            labels: years,
-            datasets:[{
-                label:'Total',
-                data: totals,
-                borderColor:'#ff9800',
-                fill:false
-            }]
-        },
-        options: {responsive:true, plugins:{legend:{display:true}}}
-    });
-}
+        options: {
+          plugins: {legend:{display:false}},
+          scales:{y:{beginAtZero:true}}
+        }
+      });
+    }
 
-// Setup and events
-updateTable();
-drawCharts();
-document.getElementById('pensionForm').onsubmit = function(e) {
-    e.preventDefault();
-    getFormData();
-    drawCharts();
-    updateTable();
-}
-</script>
+    // Startup
+    render();
+  </script>
 </body>
 </html>
