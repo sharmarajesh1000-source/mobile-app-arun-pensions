@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Arun Pensions Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #fafafa; }
+        .container { max-width: 450px; margin: auto; padding: 16px; background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.05); border-radius: 12px; }
+        h2 { text-align: center; margin-bottom: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+        th, td { text-align: center; padding: 5px; border: 1px solid #eee; }
+        input[type='number'] { width: 70px; padding: 2px; text-align: right; }
+        .chart { margin-top: 20px; background: #fff; }
+        @media (max-width:600px) {
+            .container { max-width: 100vw; padding: 3px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Arun Pensions Dashboard</h2>
+    <form id="pensionForm">
+        <table id="pensionTable">
+        </table>
+        <button type="submit">Save & Update Charts</button>
+    </form>
+    <div class="chart">
+        <canvas id="lineChartAll" width="400" height="200"></canvas>
+        <canvas id="lineChartTotal" width="400" height="200"></canvas>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Initial data - you can edit this
+const pensions = {
+    "Nest": [1000,1400,1500,1600,1800,2000,2100,2300,2500,2800,3000],
+    "Royal London": [0,0,1200,2600,3300,4500,5000,5500,6000,6600,7800],
+    "Baringa": [0,0,0,0,0,0,2500,6000,10000,15000,20000]
+};
+const years = [2020,2021,2022,2023,2024,2025,2026,2027,2028,2029,2030];
+
+function updateTable() {
+    const table = document.getElementById('pensionTable');
+    let html = '<tr><th>Year</th>';
+    for (let name in pensions) html += `<th>${name}</th>`;
+    html += '</tr>';
+    for (let i=0; i<years.length; i++) {
+        html += '<tr><td>'+years[i]+'</td>';
+        for (let name in pensions) {
+            html += `<td><input type="number" value="${pensions[name][i]}" min="0" data-pension="${name}" data-idx="${i}" /></td>`;
+        }
+        html += '</tr>';
+    }
+    table.innerHTML = html;
+}
+
+function getFormData() {
+    const inputs = document.querySelectorAll('input[type=number]');
+    inputs.forEach(input => {
+        const name = input.getAttribute('data-pension');
+        const idx = parseInt(input.getAttribute('data-idx'));
+        pensions[name][idx] = Number(input.value);
+    });
+}
+
+function drawCharts() {
+    // All pension line chart
+    const ctxA = document.getElementById('lineChartAll').getContext('2d');
+    if (window.lineChartAll) window.lineChartAll.destroy();
+    window.lineChartAll = new Chart(ctxA, {
+        type:'line',
+        data: {
+            labels: years,
+            datasets: Object.keys(pensions).map((name, i) => ({
+                label: name,
+                data: pensions[name],
+                borderColor: ['#1976d2','#43a047','#e53935'][i],
+                fill:false
+            }))
+        },
+        options: {responsive:true, plugins:{legend:{display:true}}}
+    });
+    // Total (sum) line chart
+    const totals = years.map((_,i) => Object.values(pensions).reduce((acc,v) => acc+v[i],0));
+    const ctxT = document.getElementById('lineChartTotal').getContext('2d');
+    if (window.lineChartTotal) window.lineChartTotal.destroy();
+    window.lineChartTotal = new Chart(ctxT, {
+        type:'line',
+        data: {
+            labels: years,
+            datasets:[{
+                label:'Total',
+                data: totals,
+                borderColor:'#ff9800',
+                fill:false
+            }]
+        },
+        options: {responsive:true, plugins:{legend:{display:true}}}
+    });
+}
+
+// Setup and events
+updateTable();
+drawCharts();
+document.getElementById('pensionForm').onsubmit = function(e) {
+    e.preventDefault();
+    getFormData();
+    drawCharts();
+    updateTable();
+}
+</script>
+</body>
+</html>
