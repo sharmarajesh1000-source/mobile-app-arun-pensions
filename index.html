@@ -1,163 +1,82 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>Pension Dashboard</title>
-  <!-- Vibrant color palette and Google Fonts -->
-  <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body {
-      font-family: 'Roboto', sans-serif;
-      background: linear-gradient(120deg, #70e1f5, #ffd194);
-      margin: 0;
-      color: #222;
-    }
-    header {
-      background: #21d4fd;
-      color: #fff;
-      padding: 1.2em 0;
-      text-align: center;
-      font-size: 2em;
-      font-weight: bold;
-      letter-spacing: 1px;
-      box-shadow: 0 2px 8px rgba(33,212,253,0.15);
-    }
-    nav {
-      display: flex;
-      justify-content: center;
-      gap: 1.4em;
-      background: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-      font-size: 1.1em;
-      font-weight: 700;
-    }
-    nav button {
-      background: none;
-      border: none;
-      color: #21d4fd;
-      cursor: pointer;
-      padding: 1em 0.7em;
-      transition: color 0.2s;
-    }
-    nav button.active,
-    nav button:hover {
-      color: #fad0c4;
-      text-decoration: underline;
-    }
-    main { max-width: 900px; margin: 2em auto; padding: 2em; background: #fff; border-radius: 18px; box-shadow: 0 4px 24px rgba(70,181,255,0.09); }
-    .stats { display: flex; gap: 2em; flex-wrap: wrap; margin-bottom: 2em; }
-    .statbox { background: #f1f9ff; border-radius: 10px; padding: 1.2em 2em; box-shadow: 0 2px 6px #70e1f53c; }
-    .form-row { display: flex; gap: 1em; align-items: center; margin-bottom: 0.5em; }
-    label { min-width: 70px; }
-    input[type='number'] { width: 85px; padding: 0.3em; border-radius: 5px; border: 1px solid #b0eafd; background: #e7f6ff; }
-    .savebtn { background: #21d4fd; color: #fff; border: none; padding: 0.6em 1em; border-radius: 7px; cursor: pointer; font-weight: 700; }
-    @media (max-width:600px) {
-      main { padding: 1em; }
-      .stats { flex-direction: column; gap: 1em; }
-    }
-  </style>
-</head>
-<body>
-  <header>Pension Dashboard</header>
-  <nav id="tabs"></nav>
-  <main id="content"></main>
-  <script>
-    // Initial pension state
-    const DEFAULT_DATA = {
-      Nest: { provider: 'Nest', values:   {2018: 1000,2019:1300,2020:1400,2021:1500,2022:1600,2023:1800,2024:2000} },
-      'Royal London': { provider: 'Royal London', values: {2018: 0,2019: 0,2020: 0,2021:1200,2022:2600,2023:3300,2024:4500} },
-      Baringa: { provider: 'Baringa', values: {2018:0,2019:0,2020:0,2021:0,2022:0,2023:0,2024:2500} }
-    };
-    let pensionData = JSON.parse(localStorage.getItem('pensionDataV1') || JSON.stringify(DEFAULT_DATA));
-    const years = Array.from({length: (new Date().getFullYear()-2018)+1}, (_,i) => 2018+i);
-
-    const renderTabs = () => {
-      const tablist = ['Dashboard', ...Object.keys(pensionData)];
-      document.getElementById('tabs').innerHTML = tablist.map(
-        t => `<button${activeTab===t?' class="active"':''} onclick="switchTab('${t}')">${t}</button>`
-      ).join('');
-    };
-
-    let activeTab = 'Dashboard';
-    window.switchTab = tab => { activeTab = tab; render(); };
-
-    function render() {
-      renderTabs();
-      const content = document.getElementById('content');
-      if(activeTab==='Dashboard') {
-        // Summary stats & combined chart
-        let totals = {};
-        years.forEach(y=>{
-          totals[y] = Object.values(pensionData).reduce((sum,p)=>sum+(p.values[y]||0),0)
-        });
-        const currTotal = totals[years[years.length-1]];
-        const prevTotal = totals[years[years.length-2]] || 0;
-        content.innerHTML = `
-          <div class="stats">
-            <div class="statbox">
-              <div><b>Total value (latest):</b></div>
-              <div style="font-size:1.7em;">£${currTotal.toLocaleString()}</div>
-            </div>
-            <div class="statbox">
-              <div><b>Year-on-year growth:</b></div>
-              <div style="font-size:1.3em;">${currTotal>prevTotal?'+':'-'}£${(currTotal-prevTotal).toLocaleString()}</div>
-            </div>
-          </div>
-          <canvas id="sumChart" height="120"></canvas>
-        `;
-        setTimeout(()=>drawLineChart('sumChart', years, Object.values(totals), "Combined Total (£)"), 50);
-      } else {
-        const pd = pensionData[activeTab];
-        content.innerHTML = `
-          <div style="margin-bottom:1.5em;">
-            <b>Edit annual values for <span style="color:#21d4fd">${activeTab}</span>:</b>
-            <form id="editForm">${years.map(y =>
-              `<div class="form-row">
-                <label>${y}</label>
-                <input type="number" min="0" name="val-${y}" value="${pd.values[y]||''}" />
-              </div>`
-            ).join('')}
-             <button class="savebtn" type="submit">Save</button>
-            </form>
-          </div>
-          <canvas id="pensionChart" height="120"></canvas>
-        `;
-        setTimeout(()=>drawLineChart('pensionChart', years, years.map(y=>pd.values[y]||0), `${activeTab} Value (£)`),50);
-        document.getElementById('editForm').onsubmit = e => {
-          e.preventDefault();
-          years.forEach(y=>{
-            const v = parseFloat(e.target[`val-${y}`].value) || 0;
-            pd.values[y] = v;
-          });
-          pensionData[activeTab] = pd;
-          localStorage.setItem('pensionDataV1', JSON.stringify(pensionData));
-          render();
-        };
-      }
-    }
-
-    function drawLineChart(elemId, labels, data, label) {
-      new Chart(document.getElementById(elemId), {
-        type: "line",
-        data: {
-          labels: labels,
-          datasets: [{
-            label, data, fill: true, tension: 0.33,
-            borderColor: "#21d4fd", backgroundColor: "rgba(33,212,253,0.18)",
-            pointRadius: 4, pointBackgroundColor: "#fad0c4"
-          }]
-        },
-        options: {
-          plugins: {legend:{display:false}},
-          scales:{y:{beginAtZero:true}}
-        }
-      });
-    }
-
-    // Startup
-    render();
-  </script>
-</body>
-</html>
+<style>
+  body {
+    font-family: 'Roboto', sans-serif;
+    background: linear-gradient(120deg, #212033 0%, #2a144c 100%);
+    margin: 0;
+    color: #e7e4f5;
+  }
+  header {
+    background: #271953;
+    color: #e7e4f5;
+    padding: 1.2em 0;
+    text-align: center;
+    font-size: 2em;
+    font-weight: bold;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 14px #221345aa;
+  }
+  nav {
+    display: flex;
+    justify-content: center;
+    gap: 1.4em;
+    background: #181828;
+    box-shadow: 0 2px 8px rgba(80,56,150,0.09);
+    font-size: 1.1em;
+    font-weight: 700;
+  }
+  nav button {
+    background: none;
+    border: none;
+    color: #ac8fff;
+    cursor: pointer;
+    padding: 1em 0.7em;
+    transition: color 0.2s;
+  }
+  nav button.active,
+  nav button:hover {
+    color: #ffeeee;
+    text-shadow: 0 0 8px #965cff55;
+    text-decoration: underline;
+  }
+  main {
+    max-width: 900px;
+    margin: 2em auto;
+    padding: 2em;
+    background: #19182c;
+    border-radius: 20px;
+    box-shadow: 0 4px 24px #2a144c40;
+  }
+  .stats { display: flex; gap: 2em; flex-wrap: wrap; margin-bottom: 2em; }
+  .statbox { 
+    background: linear-gradient(120deg, #271953 60%, #454566 100%);
+    border-radius: 11px;
+    padding: 1.2em 2em;
+    box-shadow: 0 2px 8px #46208322;
+    color: #f3d8ff;
+  }
+  .form-row { display: flex; gap: 1em; align-items: center; margin-bottom: 0.5em; }
+  label { min-width: 70px; }
+  input[type='number'] {
+    width: 85px;
+    padding: 0.3em;
+    border-radius: 5px;
+    border: 1px solid #7d48ce;
+    background: #252145;
+    color: #ac8fff;
+  }
+  .savebtn {
+    background: #6c3cc7;
+    color: #fff;
+    border: none;
+    padding: 0.6em 1em;
+    border-radius: 7px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: background 0.17s;
+  }
+  .savebtn:hover { background: #a679f7; color: #271953;}
+  @media (max-width:600px) {
+    main { padding: 1em; }
+    .stats { flex-direction: column; gap: 1em; }
+  }
+</style>
